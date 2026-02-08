@@ -22,13 +22,13 @@ export default function CreateGameModal({ onClose }: CreateGameModalProps) {
     setLoading(true);
 
     try {
-      const response = await api.post<{ game: { _id: string } }>('/games/create', {
+      const response = await api.post<{ game: { id: string } }>('/games/create', {
         seriesLength,
         opponentUsername,
       });
 
       // Redirect to the created game
-      router.push(`/game/${response.data.game._id}`);
+      router.push(`/game/${response.data.game.id}`);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create game');
       setLoading(false);
