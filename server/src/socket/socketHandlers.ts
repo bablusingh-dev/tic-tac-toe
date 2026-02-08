@@ -90,33 +90,61 @@ export const setupSocketHandlers = (io: Server): void => {
     socket.on('game:start', async (data: { gameId: string }) => {
       try {
         const { gameId } = data;
-        const game = await Game.findById(gameId);
+        
+        // Use atomic operation to prevent both players from creating the first game
+        const game = await Game.findOneAndUpdate(
+          {
+            _id: gameId,
+            status: 'active',
+            currentGame: 0, // Only if game hasn't started yet
+            'games.0': { $exists: false }, // And no games exist yet
+          },
+          {
+            $set: { currentGame: 1 },
+            $push: {
+              games: {
+                gameNumber: 1,
+                board: Array(9).fill(null),
+                currentPlayer: 'X',
+                winner: null,
+                result: null,
+                startedBy: 'X',
+                moves: [],
+                startedAt: new Date(),
+              },
+            },
+          },
+          { new: true }
+        );
 
         if (!game) {
-          socket.emit('error', { message: 'Game not found' });
+          // Game was already started by another player, just fetch and emit
+          const existingGame = await Game.findById(gameId);
+          if (existingGame && existingGame.games.length > 0) {
+            const firstGame = existingGame.games[0];
+            io.to(gameId).emit('game:started', {
+              gameId,
+              game: {
+                gameNumber: 1,
+                board: firstGame.board,
+                currentPlayer: firstGame.currentPlayer,
+                seriesLength: existingGame.seriesLength,
+                seriesScore: existingGame.seriesScore,
+                players: existingGame.players,
+              },
+            });
+            
+            // Timer should already be running, but ensure it's started
+            timerManager.startTimer(gameId, 'X', async () => {
+              await handleTimeout(gameId, 'X', existingGame, io);
+            });
+          } else {
+            socket.emit('error', { message: 'Game not ready to start' });
+          }
           return;
         }
 
-        if (game.status !== 'active') {
-          socket.emit('error', { message: 'Game not ready to start' });
-          return;
-        }
-
-        // Initialize first game
-        const firstGame = {
-          gameNumber: 1,
-          board: Array(9).fill(null),
-          currentPlayer: 'X' as 'X' | 'O',
-          winner: null,
-          result: null,
-          startedBy: 'X' as 'X' | 'O',
-          moves: [],
-          startedAt: new Date(),
-        };
-
-        game.games.push(firstGame);
-        game.currentGame = 1;
-        await game.save();
+        const firstGame = game.games[0];
 
         // Emit game started
         io.to(gameId).emit('game:started', {
@@ -323,15 +351,61 @@ export const setupSocketHandlers = (io: Server): void => {
       try {
         const { gameId } = data;
         
-        // Use atomic operation to prevent race condition
-        // Only increment currentGame if the next game doesn't exist yet
-        const nextGameNumber = await Game.findById(gameId).then(g => g ? g.currentGame + 1 : 0);
+        // First, get current state to know what game number to create
+        const currentState = await Game.findById(gameId);
+        if (!currentState) {
+          socket.emit('error', { message: 'Game not found' });
+          return;
+        }
+
+        if (currentState.currentGame >= currentState.seriesLength) {
+          socket.emit('error', { message: 'Series already completed' });
+          return;
+        }
+
+        const nextGameNumber = currentState.currentGame + 1;
         
+        // Check if next game already exists
+        const nextGameExists = currentState.games.some(g => g.gameNumber === nextGameNumber);
+        
+        if (nextGameExists) {
+          // Game already created, just emit it
+          const existingGame = currentState.games.find(g => g.gameNumber === nextGameNumber);
+          if (existingGame) {
+            io.to(gameId).emit('game:started', {
+              gameId,
+              game: {
+                gameNumber: existingGame.gameNumber,
+                board: existingGame.board,
+                currentPlayer: existingGame.currentPlayer,
+                seriesLength: currentState.seriesLength,
+                seriesScore: currentState.seriesScore,
+                players: currentState.players,
+              },
+            });
+            
+            // Start timer if not already running
+            timerManager.startTimer(gameId, existingGame.currentPlayer, async () => {
+              await handleTimeout(gameId, existingGame.currentPlayer, currentState, io);
+            });
+          }
+          return;
+        }
+
+        // Get the previous game to determine starter
+        const previousGame = currentState.games[currentState.games.length - 1];
+        const nextStarter = determineNextStarter(
+          previousGame.result!,
+          previousGame.winner,
+          previousGame.startedBy
+        );
+
+        // Use atomic operation with exact currentGame match to prevent race condition
         const game = await Game.findOneAndUpdate(
           {
             _id: gameId,
-            currentGame: { $lt: nextGameNumber }, // Only update if currentGame hasn't been incremented yet
-            'games.gameNumber': { $ne: nextGameNumber }, // And next game doesn't exist
+            currentGame: currentState.currentGame, // Must match EXACT current value
+            [`games.${currentState.games.length}`]: { $exists: false }, // Next array position must be empty
           },
           {
             $inc: { currentGame: 1 },
@@ -339,10 +413,10 @@ export const setupSocketHandlers = (io: Server): void => {
               games: {
                 gameNumber: nextGameNumber,
                 board: Array(9).fill(null),
-                currentPlayer: 'X', // Temporary, will be updated below
+                currentPlayer: nextStarter,
                 winner: null,
                 result: null,
-                startedBy: 'X', // Temporary, will be updated below
+                startedBy: nextStarter,
                 moves: [],
                 startedAt: new Date(),
               },
@@ -352,10 +426,10 @@ export const setupSocketHandlers = (io: Server): void => {
         );
 
         if (!game) {
-          // Game was already updated by another request, just fetch and emit
-          const existingGame = await Game.findById(gameId);
-          if (existingGame) {
-            const nextGame = existingGame.games.find(g => g.gameNumber === nextGameNumber);
+          // Another request already created the game, fetch and emit
+          const updatedGame = await Game.findById(gameId);
+          if (updatedGame) {
+            const nextGame = updatedGame.games.find(g => g.gameNumber === nextGameNumber);
             if (nextGame) {
               io.to(gameId).emit('game:started', {
                 gameId,
@@ -363,55 +437,22 @@ export const setupSocketHandlers = (io: Server): void => {
                   gameNumber: nextGame.gameNumber,
                   board: nextGame.board,
                   currentPlayer: nextGame.currentPlayer,
-                  seriesLength: existingGame.seriesLength,
-                  seriesScore: existingGame.seriesScore,
-                  players: existingGame.players,
+                  seriesLength: updatedGame.seriesLength,
+                  seriesScore: updatedGame.seriesScore,
+                  players: updatedGame.players,
                 },
               });
               
               // Start timer
               timerManager.startTimer(gameId, nextGame.currentPlayer, async () => {
-                await handleTimeout(gameId, nextGame.currentPlayer, existingGame, io);
+                await handleTimeout(gameId, nextGame.currentPlayer, updatedGame, io);
               });
             }
           }
           return;
         }
 
-        if (game.currentGame >= game.seriesLength) {
-          socket.emit('error', { message: 'Series already completed' });
-          return;
-        }
-
-        // Get the previous game to determine starter
-        const previousGame = game.games[game.games.length - 2]; // -2 because we just pushed a new game
-        const nextStarter = determineNextStarter(
-          previousGame.result!,
-          previousGame.winner,
-          previousGame.startedBy
-        );
-
-        // Update the newly created game with correct starter
-        const updatedGame = await Game.findOneAndUpdate(
-          {
-            _id: gameId,
-            'games.gameNumber': nextGameNumber,
-          },
-          {
-            $set: {
-              'games.$.currentPlayer': nextStarter,
-              'games.$.startedBy': nextStarter,
-            },
-          },
-          { new: true }
-        );
-
-        if (!updatedGame) {
-          socket.emit('error', { message: 'Error updating game' });
-          return;
-        }
-
-        const nextGame = updatedGame.games.find(g => g.gameNumber === nextGameNumber);
+        const nextGame = game.games.find(g => g.gameNumber === nextGameNumber);
         if (!nextGame) {
           socket.emit('error', { message: 'Error finding next game' });
           return;
@@ -424,15 +465,15 @@ export const setupSocketHandlers = (io: Server): void => {
             gameNumber: nextGame.gameNumber,
             board: nextGame.board,
             currentPlayer: nextGame.currentPlayer,
-            seriesLength: updatedGame.seriesLength,
-            seriesScore: updatedGame.seriesScore,
-            players: updatedGame.players,
+            seriesLength: game.seriesLength,
+            seriesScore: game.seriesScore,
+            players: game.players,
           },
         });
 
         // Start timer
         timerManager.startTimer(gameId, nextStarter, async () => {
-          await handleTimeout(gameId, nextStarter, updatedGame, io);
+          await handleTimeout(gameId, nextStarter, game, io);
         });
 
         console.log(`Next game started in series ${gameId}`);
