@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/utils/api';
 import { User, AuthResponse } from '@/types';
@@ -9,9 +9,13 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (identifier: string, password: string) => Promise<void>;
-  register: (email: string, username: string, fullName: string, password: string) => Promise<void>;
+  register: (
+    email: string,
+    username: string,
+    fullName: string,
+    password: string
+  ) => Promise<void>;
   logout: () => void;
-  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,13 +23,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
 interface AuthProviderProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
@@ -34,21 +38,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
+    // Verify authentication with server on app load
+    const verifyAuth = async () => {
+      const token = localStorage.getItem('token');
 
-    if (token && savedUser) {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        setUser(JSON.parse(savedUser));
+        // Verify token with server
+        const response = await api.get<{ user: User }>('/auth/me');
+        const userData = response.data.user;
+
+        // Update localStorage with fresh user data
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
       } catch (error) {
-        console.error('Error parsing saved user:', error);
+        // Token is invalid or expired, clear localStorage
+        console.error('Auth verification failed:', error);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
 
-    setLoading(false);
+    verifyAuth();
   }, []);
 
   const login = async (identifier: string, password: string) => {
@@ -66,7 +84,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       router.push('/dashboard');
     } catch (error: any) {
-      const message = error.response?.data?.error || 'Login failed';
+      // Server now always returns { error: "..." } format
+      const message = error.response?.data?.error || error.message || 'Login failed';
       throw new Error(message);
     }
   };
@@ -93,7 +112,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       router.push('/dashboard');
     } catch (error: any) {
-      const message = error.response?.data?.error || 'Registration failed';
+      // Server now always returns { error: "..." } format
+      const message = error.response?.data?.error || error.message || 'Registration failed';
       throw new Error(message);
     }
   };
@@ -111,7 +131,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
-    isAuthenticated: !!user,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

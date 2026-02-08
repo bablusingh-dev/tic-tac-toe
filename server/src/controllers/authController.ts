@@ -52,7 +52,8 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
+      const errorMessages = errors.array().map(err => err.msg).join(', ');
+      res.status(400).json({ error: errorMessages });
       return;
     }
 
@@ -114,7 +115,8 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
+      const errorMessages = errors.array().map(err => err.msg).join(', ');
+      res.status(400).json({ error: errorMessages });
       return;
     }
 

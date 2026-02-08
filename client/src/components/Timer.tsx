@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
 
 interface TimerProps {
   timeLeft: number;
@@ -28,36 +27,22 @@ export default function Timer({ timeLeft, isMyTurn }: TimerProps) {
   };
 
   return (
-    <motion.div
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{
-        scale: timeLeft < 5 ? [1, 1.05, 1] : 1,
-        opacity: 1,
-      }}
-      transition={{
-        scale: {
-          repeat: timeLeft < 5 ? Infinity : 0,
-          duration: 0.5,
-        },
-      }}
-      className={`${getBackgroundColor()} ${getBorderColor()} border-4 rounded-2xl p-8 text-center ${
+    <div
+      className={`${getBackgroundColor()} ${getBorderColor()} border-4 rounded-2xl p-6 sm:p-8 text-center ${
         timeLeft < 5 ? 'animate-shake' : ''
       }`}
     >
-      <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
+      <p className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
         {isMyTurn ? 'YOUR TURN' : "OPPONENT'S TURN"}
       </p>
-      <motion.div
-        key={timeLeft}
-        initial={{ scale: 1.2 }}
-        animate={{ scale: 1 }}
-        className={`text-8xl font-bold ${getTimerColor()}`}
+      <div
+        className={`text-6xl sm:text-8xl font-bold ${getTimerColor()} min-h-[100px] sm:min-h-[120px] flex items-center justify-center tabular-nums`}
       >
         {timeLeft}
-      </motion.div>
-      <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mt-2">
+      </div>
+      <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 mt-2">
         seconds remaining
       </p>
-    </motion.div>
+    </div>
   );
 }

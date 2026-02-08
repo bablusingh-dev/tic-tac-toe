@@ -7,9 +7,10 @@ export const getSeriesHistory = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
 
-    // Find all completed games where user was a player
+    // Find all completed games where user was a player and at least one game was played
     const completedSeries = await Game.find({
       status: 'completed',
+      'games.0': { $exists: true }, // Ensure at least one game exists
       $or: [
         { 'players.player1.userId': userId },
         { 'players.player2.userId': userId },
@@ -19,7 +20,9 @@ export const getSeriesHistory = async (req: AuthRequest, res: Response) => {
       .limit(50); // Limit to last 50 series
 
     // Format the response with additional stats
-    const formattedHistory = completedSeries.map((series) => {
+    const formattedHistory = completedSeries
+      .filter((series) => series.games.length > 0) // Extra safety check
+      .map((series) => {
       const isPlayer1 = series.players.player1.userId.toString() === userId;
       const opponent = isPlayer1 ? series.players.player2 : series.players.player1;
       const myWins = isPlayer1 ? series.seriesScore.player1Wins : series.seriesScore.player2Wins;
@@ -42,7 +45,7 @@ export const getSeriesHistory = async (req: AuthRequest, res: Response) => {
 
     res.json({
       history: formattedHistory,
-      total: completedSeries.length,
+      total: formattedHistory.length,
     });
   } catch (error) {
     console.error('Error fetching series history:', error);

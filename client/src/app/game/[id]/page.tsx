@@ -193,17 +193,17 @@ export default function GamePage() {
     <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
           <button
             onClick={() => router.push('/dashboard')}
-            className="btn-secondary"
+            className="btn-secondary text-sm sm:text-base order-1"
           >
-            ← Back to Dashboard
+            ← Back
           </button>
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white order-2 sm:order-2">
             Best of {game.seriesLength} Series
           </h1>
-          <div className="w-40"></div>
+          <div className="w-20 sm:w-40 order-3"></div>
         </div>
 
         {!gameStarted ? (

@@ -81,14 +81,14 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2">
               Welcome, {user.fullName}!
             </h1>
             <p className="text-primary-200">@{user.username}</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <div
                 className={`w-3 h-3 rounded-full ${
@@ -99,10 +99,10 @@ export default function DashboardPage() {
                 {connected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
-            <button onClick={() => router.push('/history')} className="btn-secondary">
+            <button onClick={() => router.push('/history')} className="btn-secondary text-sm sm:text-base">
               📜 History
             </button>
-            <button onClick={logout} className="btn-danger">
+            <button onClick={logout} className="btn-danger text-sm sm:text-base">
               Logout
             </button>
           </div>
