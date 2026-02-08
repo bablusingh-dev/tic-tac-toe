@@ -86,3 +86,13 @@ export const calculateSeriesWinner = (
   }
   return null; // Tie in series (shouldn't happen with odd series lengths)
 };
+
+// Check if series is complete (someone has won majority of games)
+export const isSeriesComplete = (
+  player1Wins: number,
+  player2Wins: number,
+  seriesLength: number
+): boolean => {
+  const winsNeeded = Math.ceil(seriesLength / 2); // For best-of-3: need 2 wins, best-of-5: need 3 wins
+  return player1Wins >= winsNeeded || player2Wins >= winsNeeded;
+};

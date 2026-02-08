@@ -334,6 +334,29 @@ export const setupSocketHandlers = (io: Server): void => {
           return;
         }
 
+        // Check if next game already exists (prevent duplicate creation from race condition)
+        const nextGameNumber = game.currentGame + 1;
+        const nextGameExists = game.games.some(g => g.gameNumber === nextGameNumber);
+        
+        if (nextGameExists) {
+          // Game already created by another player, just emit the existing game
+          const existingGame = game.games.find(g => g.gameNumber === nextGameNumber);
+          if (existingGame) {
+            io.to(gameId).emit('game:started', {
+              gameId,
+              game: {
+                gameNumber: existingGame.gameNumber,
+                board: existingGame.board,
+                currentPlayer: existingGame.currentPlayer,
+                seriesLength: game.seriesLength,
+                seriesScore: game.seriesScore,
+                players: game.players,
+              },
+            });
+          }
+          return;
+        }
+
         const previousGame = game.games[game.games.length - 1];
 
         // Determine who starts next game
@@ -345,7 +368,7 @@ export const setupSocketHandlers = (io: Server): void => {
 
         // Create next game
         const nextGame = {
-          gameNumber: game.currentGame + 1,
+          gameNumber: nextGameNumber,
           board: Array(9).fill(null),
           currentPlayer: nextStarter,
           winner: null,
