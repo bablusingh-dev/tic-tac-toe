@@ -32,7 +32,8 @@ const generateToken = (userId: string): string => {
   const jwtSecret = process.env.JWT_SECRET || 'your-secret-key';
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
 
-  return jwt.sign({ userId }, jwtSecret, { expiresIn });
+  const token = jwt.sign({ userId }, jwtSecret, { expiresIn } as jwt.SignOptions);
+  return token;
 };
 
 // Set token cookie
@@ -185,7 +186,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
 };
 
 // Logout controller
-export const logout = async (req: AuthRequest, res: Response): Promise<void> => {
+export const logout = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     res.clearCookie('token');
     res.status(200).json({ message: 'Logout successful' });

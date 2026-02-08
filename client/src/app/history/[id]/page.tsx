@@ -39,7 +39,7 @@ export default function SeriesDetailsPage() {
     }
   };
 
-  const formatDate = (dateString: Date) => {
+  const formatDate = (dateString: string | Date) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',

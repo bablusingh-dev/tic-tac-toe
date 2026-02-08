@@ -133,7 +133,7 @@ export const setupSocketHandlers = (io: Server): void => {
 
         // Start timer for first player
         timerManager.startTimer(gameId, 'X', async () => {
-          await handleTimeout(gameId, 'X', game, io, timerManager);
+          await handleTimeout(gameId, 'X', game, io);
         });
 
         console.log(`Game ${gameId} started`);
@@ -309,7 +309,7 @@ export const setupSocketHandlers = (io: Server): void => {
 
           // Start timer for next player
           timerManager.startTimer(gameId, currentGameState.currentPlayer, async () => {
-            await handleTimeout(gameId, currentGameState.currentPlayer, game, io, timerManager);
+            await handleTimeout(gameId, currentGameState.currentPlayer, game, io);
           });
         }
       } catch (error) {
@@ -374,7 +374,7 @@ export const setupSocketHandlers = (io: Server): void => {
 
         // Start timer
         timerManager.startTimer(gameId, nextStarter, async () => {
-          await handleTimeout(gameId, nextStarter, game, io, timerManager);
+          await handleTimeout(gameId, nextStarter, game, io);
         });
 
         console.log(`Next game started in series ${gameId}`);
@@ -395,8 +395,7 @@ export const setupSocketHandlers = (io: Server): void => {
     gameId: string,
     timedOutPlayer: 'X' | 'O',
     game: any,
-    io: Server,
-    timerManager: TimerManager
+    io: Server
   ) => {
     try {
       const currentGameState = game.games[game.games.length - 1];

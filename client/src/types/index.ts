@@ -53,6 +53,7 @@ export interface Game {
   invitedPlayer: string;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string;
 }
 
 export interface AuthResponse {
