@@ -2,14 +2,15 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import api from '@/utils/api';
 
 interface CreateGameModalProps {
   onClose: () => void;
-  onGameCreated: () => void;
 }
 
-export default function CreateGameModal({ onClose, onGameCreated }: CreateGameModalProps) {
+export default function CreateGameModal({ onClose }: CreateGameModalProps) {
+  const router = useRouter();
   const [seriesLength, setSeriesLength] = useState<3 | 5 | 7>(3);
   const [opponentUsername, setOpponentUsername] = useState('');
   const [error, setError] = useState('');
@@ -21,15 +22,15 @@ export default function CreateGameModal({ onClose, onGameCreated }: CreateGameMo
     setLoading(true);
 
     try {
-      await api.post('/games/create', {
+      const response = await api.post<{ game: { _id: string } }>('/games/create', {
         seriesLength,
         opponentUsername,
       });
 
-      onGameCreated();
+      // Redirect to the created game
+      router.push(`/game/${response.data.game._id}`);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create game');
-    } finally {
       setLoading(false);
     }
   };

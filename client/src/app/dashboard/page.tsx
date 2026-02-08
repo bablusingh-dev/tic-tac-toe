@@ -251,7 +251,6 @@ export default function DashboardPage() {
       {showCreateModal && (
         <CreateGameModal
           onClose={() => setShowCreateModal(false)}
-          onGameCreated={handleGameCreatedSuccess}
         />
       )}
     </div>
